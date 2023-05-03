@@ -83,7 +83,7 @@ namespace Beat_saber_Sorter
             return new Tuple<int, string[]>(int.Parse(option), input.Split(' '));
 
         }
-
+    
         static void LoadSongsToDB(string[] args)
         {
             if (args.Length == 1) { Console.WriteLine("Please enter a number of pages to load"); return; }
@@ -118,7 +118,6 @@ namespace Beat_saber_Sorter
             }
             // end while
         }
-
         // features, before, after, during, pages, sort by value (highest to lowest), filter by value with regex or exact or less than or greater than
         static void FilterSongs(string[] args)
         {
@@ -128,6 +127,7 @@ namespace Beat_saber_Sorter
 
             // sort through arguments
             FilterDefinition<BSSong> filter = Builders<BSSong>.Filter.Empty;
+            // by default sort by upvotes
             SortDefinition<BSSong> sort = Builders<BSSong>.Sort.Descending("stats.upvotes");
             int pagenum = 1;
 
@@ -244,7 +244,6 @@ namespace Beat_saber_Sorter
             Console.WriteLine();
 
         }
-
         static void OutputFormattedSong(BSSong song, int index, string namePrefix = "")
         {
             Console.ForegroundColor = ConsoleColor.Blue;
@@ -274,13 +273,13 @@ namespace Beat_saber_Sorter
                 Console.ForegroundColor = ConsoleColor.Yellow;
             }
             Console.Write("("+song.stats.upvotes + ") ");
-
-            if (song.versions[0].diffs[0].chroma == true)
+            var chromeNoodle = findChromaOrNoodle(song);
+            if (chromeNoodle.Item1)
             {
                 Console.ForegroundColor = ConsoleColor.DarkMagenta;
                 Console.Write("(Chroma) ");
             }
-            if (song.versions[0].diffs[0].ne == true)
+            if (chromeNoodle.Item2)
             {
                 Console.ForegroundColor = ConsoleColor.DarkMagenta;
                 Console.Write("(Noodle Extensions) ");
@@ -399,7 +398,6 @@ namespace Beat_saber_Sorter
             }
             lastLookedAtSong = song;
         }
-
         static void InstallSong(string[] args)
         {
             string id;
@@ -445,8 +443,8 @@ namespace Beat_saber_Sorter
             Console.WriteLine("in browser");
 
             Process.Start(new ProcessStartInfo($"https://skystudioapps.com/bs-viewer/?id={id}") { UseShellExecute = true });
+            lastLookedAtSong = song;
         }
-
         static void ListenToPreview(string[] args)
         {
             string id;
@@ -471,10 +469,7 @@ namespace Beat_saber_Sorter
             }
 
             ms.Position = 0;
-            using WaveStream blockAlignedStream =
-                new BlockAlignReductionStream(
-                    WaveFormatConversionStream.CreatePcmStream(
-                        new Mp3FileReader(ms)));
+            using WaveStream blockAlignedStream = new BlockAlignReductionStream(WaveFormatConversionStream.CreatePcmStream(new Mp3FileReader(ms)));
             using WaveOut directOut = new WaveOut();
             directOut.Init(blockAlignedStream);
             directOut.Volume = 0.4f;
@@ -482,11 +477,11 @@ namespace Beat_saber_Sorter
             while (directOut.PlaybackState == PlaybackState.Playing)
             {
                 Thread.Sleep(100);
+                if (Console.NumberLock) break; // can stop 
             }
             directOut.Dispose();
+            lastLookedAtSong = song;
         }
-
-
         static void Test(string[] args)
         {
             FilterDefinition<BSSong> filter = Builders<BSSong>.Filter.Empty;
@@ -507,6 +502,25 @@ namespace Beat_saber_Sorter
             }
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine();
+        }
+
+        static Tuple<bool,bool> findChromaOrNoodle(BSSong song)
+        {
+            bool Chroma = false;
+            bool Noodle = false;
+            for (int i = 0; i < song.versions.Count; i++) 
+            {
+                Helpers.Version v = song.versions[i];
+                for (int j = 0; j < v.diffs.Count; j++)
+                {
+                    Diff diff = v.diffs[j];
+                    if ((bool)diff.chroma!) Chroma = true;
+                    if ((bool)diff.ne!) Noodle = true;
+                    if (Chroma && Noodle) break;
+                }
+                if (Chroma && Noodle) break;
+            }
+            return new Tuple<bool, bool>(Chroma, Noodle);
         }
     }
 }
